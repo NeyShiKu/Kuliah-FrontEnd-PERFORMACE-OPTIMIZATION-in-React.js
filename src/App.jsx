@@ -1,5 +1,6 @@
 // src/App.jsx
 import React, { useState, useEffect, useMemo } from 'react';
+import { getFromCache, setToCache } from './utils/searchCache';
 import { products } from './data/products';
 import SearchBar from './components/SearchBar';
 import ProductList from './components/ProductList';
@@ -33,16 +34,33 @@ function App() {
         saveCartToStorage(cart);
     }, [cart]);
 
-    // Filter produk (optimalkan dengan useMemo)
-    const filteredProducts = useMemo(() => {
-        if (!searchTerm.trim()) return products;
-        const term = searchTerm.toLowerCase();
-        return products.filter((p) =>
-            p.name.toLowerCase().includes(term) ||
-            p.brand.toLowerCase().includes(term) ||
-            p.category.toLowerCase().includes(term)
+    // Fungsi pembantu: filter produk dengan caching
+    const filterProducts = (term) => {
+        if (!term.trim()) return products;
+
+        const cacheKey = term.toLowerCase().trim();
+        const cached = getFromCache(cacheKey);
+        if (cached) {
+            console.log('🎯 Cache hit:', cacheKey); // opsional: untuk debugging
+            return cached;
+        }
+
+        console.log('🔍 Cache miss, filtering:', cacheKey); // opsional
+
+        const filtered = products.filter((p) =>
+            p.name.toLowerCase().includes(cacheKey) ||
+            p.brand.toLowerCase().includes(cacheKey) ||
+            p.category.toLowerCase().includes(cacheKey)
         );
-    }, [searchTerm]); // hanya hitung ulang jika searchTerm berubah
+
+        setToCache(cacheKey, filtered);
+        return filtered;
+    };
+
+    // Gunakan useMemo hanya untuk memastikan tidak memanggil filterProducts berulang dalam satu render
+    const filteredProducts = useMemo(() => {
+        return filterProducts(searchTerm);
+    }, [searchTerm]);
 
     const handleAddToCart = (product) => {
         setCart((prev) => {
